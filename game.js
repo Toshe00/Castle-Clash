@@ -259,7 +259,30 @@
     if (u.hitFlash > 0) u.hitFlash -= dt;
     if (u.attackPhase > 0) u.attackPhase = Math.max(0, u.attackPhase - dt * 4);
 
-    if (!u.target || !targetAlive(u.target)) u.target = pickTarget(u);
+    // Target selection: pick fresh when missing/dead, or periodically re-check
+    // so units engage interceptors instead of marching past them. Hysteresis
+    // prevents flicker between two close enemies.
+    if (u.targetCheckTimer === undefined) u.targetCheckTimer = 0;
+    u.targetCheckTimer -= dt;
+    const needsNew = !u.target || !targetAlive(u.target);
+    if (needsNew || u.targetCheckTimer <= 0) {
+      u.targetCheckTimer = 0.3 + Math.random() * 0.2;
+      const candidate = pickTarget(u);
+      if (needsNew) {
+        u.target = candidate;
+      } else if (candidate) {
+        const curr = u.target;
+        if (curr.kind === "castle" && candidate.kind === "unit") {
+          // An enemy unit is now closer than the castle → engage them instead
+          u.target = candidate;
+        } else if (curr.kind === "unit" && candidate.kind === "unit" && curr.unit !== candidate.unit) {
+          // Switch to a meaningfully closer enemy unit
+          const oldD = Math.hypot(curr.unit.x - u.x, curr.unit.y - u.y);
+          const newD = Math.hypot(candidate.unit.x - u.x, candidate.unit.y - u.y);
+          if (newD < oldD - 30) u.target = candidate;
+        }
+      }
+    }
     if (!u.target) return;
 
     const tx = targetX(u.target);

@@ -426,6 +426,11 @@ const Art = (() => {
   }
 
   // ---------- BOOT ----------
+  // Asset base prefix. art.js + assets/ live under /game/ but the page is
+  // served from the project root (for GitHub Pages), so resolve image paths
+  // relative to the document by prefixing with "game/".
+  const ASSET_BASE = "game/";
+
   async function boot() {
     cache.background = await loadImage("assets/background.png");
     cache.player.full       = await loadImage("assets/player_castle_full.png");
@@ -496,11 +501,16 @@ const Art = (() => {
   }
 
   function loadImage(src) {
+    // Auto-prefix asset paths with the asset base. art.js and assets/ live
+    // under /game/ but the page is served from /. Paths in data.js still use
+    // "assets/..." for readability.
+    let resolved = src;
+    if (resolved.startsWith("assets/")) resolved = ASSET_BASE + resolved;
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => resolve(null);
-      img.src = src;
+      img.src = resolved;
     });
   }
 
