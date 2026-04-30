@@ -11,6 +11,7 @@
 const Sound = (() => {
   const cache = {};
   let muted = false;
+  let unlocked = false; // iOS Safari blocks audio until a user gesture
 
   function load(name, file) {
     const a = new Audio(`assets/sfx/${file}`);
@@ -30,6 +31,37 @@ const Sound = (() => {
       clone.play().catch(() => {});
     } catch (_) { /* ignore */ }
   }
+
+  // iOS / Safari refuse to play <audio> until the user has interacted with
+  // the page. We wire a one-shot listener on pointerdown/touchstart that
+  // briefly plays + pauses every cached sound to "unlock" them.
+  function unlockAudioOnce() {
+    if (unlocked) return;
+    unlocked = true;
+    Object.values(cache).forEach((a) => {
+      if (!a) return;
+      try {
+        a.muted = true;
+        const p = a.play();
+        if (p && p.then) {
+          p.then(() => {
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          }).catch(() => { a.muted = false; });
+        } else {
+          a.pause();
+          a.muted = false;
+        }
+      } catch (_) { /* ignore */ }
+    });
+    document.removeEventListener("pointerdown", unlockAudioOnce);
+    document.removeEventListener("touchstart",  unlockAudioOnce);
+    document.removeEventListener("keydown",     unlockAudioOnce);
+  }
+  document.addEventListener("pointerdown", unlockAudioOnce, { once: false });
+  document.addEventListener("touchstart",  unlockAudioOnce, { once: false });
+  document.addEventListener("keydown",     unlockAudioOnce, { once: false });
 
   // preload (silently ignored if files are missing)
   load("card",        "card_play.mp3");

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp 'c:/Users/Tosh/Downloads/Jeux Pixel Art/All Personnages/Png/User interfaces/Cs01.png' 'c:/Users/Tosh/Downloads/Project Codex Farm/game/assets/ui/castle_player.png')",
+      "Bash(cp 'c:/Users/Tosh/Downloads/Jeux Pixel Art/All Personnages/Png/User interfaces/Cs02.png' 'c:/Users/Tosh/Downloads/Project Codex Farm/game/assets/ui/castle_enemy.png')",
+      "Bash(curl -s -o /dev/null -w \"player_castle=%{http_code}\\\\n\" http://127.0.0.1:8765/game/assets/ui/castle_player.png)",
+      "Bash(curl -s -o /dev/null -w \"enemy_castle=%{http_code}\\\\n\" http://127.0.0.1:8765/game/assets/ui/castle_enemy.png)",
+      "Bash(node --check \"c:/Users/Tosh/Downloads/Project Codex Farm/data.js\")"
+    ]
+  }
+}

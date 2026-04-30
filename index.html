@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Castle Clash — Card Battler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,22 +15,29 @@
 
   <!-- Top HUD -->
   <div id="top-hud">
-    <div class="castle-stat left">
-      <span class="label">Your Castle</span>
-      <div class="bar"><div id="player-castle-bar" class="fill player"></div></div>
-      <span id="player-castle-hp" class="hp">2000 / 2000</span>
+    <div class="hp-bar player">
+      <span class="bar-label">YOUR CASTLE</span>
+      <img class="bar-bg" src="game/assets/ui/green_bar_bg.png" alt="">
+      <img class="bar-fg" id="player-castle-bar" src="game/assets/ui/green_bar.png" alt="">
+      <span class="bar-text" id="player-castle-hp">2000 / 2000</span>
+      <img class="bar-castle" src="game/assets/ui/castle_player.png" alt="">
     </div>
 
     <div id="center-hud">
-      <button id="pause-btn" class="hud-btn" title="Pause / Resume">II</button>
+      <img id="vs-badge" src="game/assets/ui/vs.png" alt="VS">
       <div id="match-timer">3:00</div>
-      <button id="speed-btn" class="hud-btn" title="Toggle game speed">x1</button>
+      <div class="hud-buttons">
+        <button id="pause-btn" class="hud-btn" title="Pause / Resume">II</button>
+        <button id="speed-btn" class="hud-btn" title="Toggle game speed">x1</button>
+      </div>
     </div>
 
-    <div class="castle-stat right">
-      <span class="label">Enemy Castle</span>
-      <div class="bar"><div id="enemy-castle-bar" class="fill enemy"></div></div>
-      <span id="enemy-castle-hp" class="hp">2000 / 2000</span>
+    <div class="hp-bar enemy">
+      <span class="bar-label">ENEMY CASTLE</span>
+      <img class="bar-bg" src="game/assets/ui/red_bar_bg.png" alt="">
+      <img class="bar-fg" id="enemy-castle-bar" src="game/assets/ui/red_bar.png" alt="">
+      <span class="bar-text" id="enemy-castle-hp">2000 / 2000</span>
+      <img class="bar-castle" src="game/assets/ui/castle_enemy.png" alt="">
     </div>
   </div>
 
@@ -42,18 +52,167 @@
     <div id="hand"></div>
   </div>
 
-  <!-- Title screen -->
-  <div id="title-screen">
-    <div class="title-card">
-      <div class="title-banner">
-        <h1>CASTLE CLASH</h1>
-        <p class="subtitle">Real-Time Card Battler</p>
+  <!-- Main menu -->
+  <div id="title-screen" class="main-menu">
+
+    <!-- HOME view (default) — 4 main buttons over the cartoon backdrop -->
+    <div class="menu-screen menu-home" id="menu-home" data-screen="home">
+      <div class="home-buttons">
+        <button class="big-menu-btn primary" id="btn-jouer">
+          <span class="big-menu-icon">⚔</span><span>JOUER</span>
+        </button>
+        <button class="big-menu-btn" id="btn-campagne">
+          <span class="big-menu-icon">🛡</span><span>CAMPAGNE</span>
+        </button>
+        <button class="big-menu-btn" id="btn-heroes">
+          <span class="big-menu-icon">👑</span><span>HÉROS</span>
+        </button>
+        <button class="big-menu-btn disabled-btn" id="btn-shop" data-cosmetic>
+          <span class="big-menu-icon">🛒</span><span>SHOP</span>
+        </button>
       </div>
-      <div class="title-tip">
-        Drag a card into the highlighted zone to deploy. <br/>
-        Spells can be cast anywhere on the field.
+    </div>
+
+    <!-- CAMPAIGN (map) view — shown when CAMPAGNE is clicked -->
+    <div class="menu-screen hidden" id="menu-map-screen" data-screen="map">
+      <button class="back-btn" data-back>← Retour</button>
+      <div class="panel-title">CAMPAGNE</div>
+      <div class="map-card">
+        <div class="map-canvas" id="map-canvas"></div>
+        <button class="btn-green btn-big" id="map-play-btn">PLAY STAGE 1</button>
       </div>
-      <button id="play-btn" class="primary-btn">Play</button>
+    </div>
+
+    <!-- HEROES view — shown when HÉROS is clicked -->
+    <div class="menu-screen hidden" id="menu-heroes-screen" data-screen="heroes">
+      <button class="back-btn" data-back>← Retour</button>
+      <div class="panel-title">HÉROS</div>
+      <div class="heroes-card">
+        <div class="heroes-collection" id="heroes-collection"></div>
+      </div>
+    </div>
+
+    <!-- OPTIONS view -->
+    <div class="menu-screen hidden" id="menu-options-screen" data-screen="options">
+      <button class="back-btn" data-back>← Retour</button>
+      <div class="panel-title">OPTIONS</div>
+      <div class="options-card">
+        <label class="option-row">
+          <span>Effets sonores</span>
+          <input type="checkbox" id="opt-sound" checked>
+        </label>
+        <label class="option-row">
+          <span>Mode rapide (×2)</span>
+          <input type="checkbox" id="opt-fast">
+        </label>
+        <button class="btn-orange btn-big" id="opt-restart">REDÉMARRER MATCH</button>
+      </div>
+    </div>
+
+    <!-- Bottom icon row: 4 small action buttons -->
+    <div class="menu-icon-row" id="menu-icon-row">
+      <button class="bottom-icon" data-action="options" data-functional="1">
+        <span class="bot-icon-glyph">⚙</span><span class="bot-icon-label">OPTIONS</span>
+      </button>
+      <button class="bottom-icon" data-action="rewards" data-cosmetic>
+        <span class="bot-icon-glyph">🎁</span><span class="bot-icon-label">RÉCOMPENSES</span>
+      </button>
+      <button class="bottom-icon" data-action="ranking" data-cosmetic>
+        <span class="bot-icon-glyph">🏆</span><span class="bot-icon-label">CLASSEMENT</span>
+      </button>
+      <button class="bottom-icon" data-action="profile" data-cosmetic>
+        <span class="bot-icon-glyph">👤</span><span class="bot-icon-label">PROFIL</span>
+      </button>
+    </div>
+
+    <!-- (legacy panels kept around but visually unused; will be cleaned later) -->
+    <div class="menu-body" style="display:none">
+      <div class="tab-panel hidden" data-tab="heroes">
+        <div class="panel-title">HEROES</div>
+        <div class="heroes-grid" id="menu-heroes-grid"></div>
+      </div>
+      <div class="tab-panel hidden" data-tab="arena">
+        <div class="arena-screen">
+          <button class="btn-orange btn-find-match" id="play-btn">FIND MATCH</button>
+          <div class="hero-slots" id="arena-hero-slots">
+            <div class="hero-slot" data-slot="0"></div>
+            <div class="hero-slot" data-slot="1"></div>
+            <div class="hero-slot" data-slot="2"></div>
+            <div class="hero-slot" data-slot="3"></div>
+            <div class="hero-slot" data-slot="4"></div>
+            <div class="hero-slot" data-slot="5"></div>
+          </div>
+        </div>
+      </div>
+      <!-- SHOP tab content -->
+      <div class="tab-panel" data-tab="shop">
+        <div class="shop-row">
+          <!-- Special deal -->
+          <div class="special-deal">
+            <img class="special-deal-img" src="game/assets/ui/menu/Special_Deal_box.png" alt="Special Deal">
+            <div class="special-deal-foot">
+              <div class="special-deal-price">
+                <img src="game/assets/ui/menu/Gold03.png" alt=""><span>250</span>
+              </div>
+              <button class="btn-green" data-action="buy-deal">GET IT NOW</button>
+            </div>
+          </div>
+
+          <!-- Shopping section -->
+          <div class="shopping">
+            <div class="shopping-title">SHOPPING</div>
+            <div class="coin-grid">
+              <div class="coin-pack">
+                <img class="pack-bg" src="game/assets/ui/menu/CoinPack_box.png" alt="">
+                <img class="pack-coins" src="game/assets/ui/menu/Gold01.png" alt="">
+                <div class="pack-amount">5000<br/><span>Coins</span></div>
+                <button class="btn-green pack-buy" data-action="buy-coins" data-amount="5000">BUY $25</button>
+              </div>
+              <div class="coin-pack">
+                <img class="pack-bg" src="game/assets/ui/menu/CoinPack_box.png" alt="">
+                <img class="pack-coins" src="game/assets/ui/menu/Gold02.png" alt="">
+                <div class="pack-amount">2000<br/><span>Coins</span></div>
+                <button class="btn-green pack-buy" data-action="buy-coins" data-amount="2000">BUY $17</button>
+              </div>
+              <div class="coin-pack">
+                <img class="pack-bg" src="game/assets/ui/menu/CoinPack_box.png" alt="">
+                <img class="pack-coins" src="game/assets/ui/menu/Gold03.png" alt="">
+                <div class="pack-amount">400<br/><span>Coins</span></div>
+                <button class="btn-green pack-buy" data-action="buy-coins" data-amount="400">BUY $5</button>
+              </div>
+              <div class="coin-pack video-pack">
+                <img class="pack-bg" src="game/assets/ui/menu/CoinPack_box.png" alt="">
+                <div class="pack-watch-label">WATCH VIDEO</div>
+                <img class="pack-video" src="game/assets/ui/menu/VideoAds_icon.png" alt="">
+                <div class="pack-amount">50<br/><span>Coins</span></div>
+                <button class="btn-orange pack-buy" data-action="watch-video">FREE</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HEROES tab content -->
+      <div class="tab-panel hidden" data-tab="heroes">
+        <div class="panel-title">HEROES</div>
+        <div class="heroes-grid" id="menu-heroes-grid"></div>
+      </div>
+
+      <!-- ARENA tab content -->
+      <div class="tab-panel hidden" data-tab="arena">
+        <div class="arena-screen">
+          <button class="btn-orange btn-find-match" id="play-btn">FIND MATCH</button>
+          <div class="hero-slots" id="arena-hero-slots">
+            <div class="hero-slot" data-slot="0"></div>
+            <div class="hero-slot" data-slot="1"></div>
+            <div class="hero-slot" data-slot="2"></div>
+            <div class="hero-slot" data-slot="3"></div>
+            <div class="hero-slot" data-slot="4"></div>
+            <div class="hero-slot" data-slot="5"></div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -71,6 +230,26 @@
     <div class="endgame-card">
       <h1 id="endgame-title">Victory</h1>
       <p id="endgame-sub">You crushed the enemy castle.</p>
+
+      <!-- Star award -->
+      <div class="end-stars" id="end-stars">
+        <span class="end-star" data-i="1">★</span>
+        <span class="end-star" data-i="2">★</span>
+        <span class="end-star" data-i="3">★</span>
+      </div>
+
+      <!-- Performance score breakdown -->
+      <div class="end-score-block">
+        <div class="end-score-total"><span>Score</span><strong id="end-score-total">0</strong></div>
+        <ul class="end-score-list" id="end-score-list">
+          <li><span>Castle damage (×0.45)</span><strong id="end-score-castle">0</strong></li>
+          <li><span>Time remaining (×0.25)</span><strong id="end-score-time">0</strong></li>
+          <li><span>Army survival (×0.15)</span><strong id="end-score-survival">0</strong></li>
+          <li><span>Deployment efficiency (×0.10)</span><strong id="end-score-deploy">0</strong></li>
+          <li><span>Destruction bonus (×0.05)</span><strong id="end-score-destruction">0</strong></li>
+        </ul>
+      </div>
+
       <button id="restart-btn" class="primary-btn">Play Again</button>
       <button id="end-menu-btn" class="secondary-btn">Main Menu</button>
     </div>

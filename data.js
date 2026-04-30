@@ -21,7 +21,7 @@ const GAME_CONSTANTS = {
 
   MAX_MANA: 10,
   START_MANA: 5,
-  MANA_REGEN_PER_SEC: 1.0,
+  MANA_REGEN_PER_SEC: 0.49,
 
   HAND_SIZE: 5,
   MATCH_DURATION_SEC: 180,
@@ -114,15 +114,15 @@ const UNITS = {
     sprite: mkSprite("char05", 0.577, 0.892, 115),
   },
 
-  // 06 — Barbarian: glass cannon
+  // 06 — Zeus: legendary lightning mage (long-range, AoE bolts)
   char06: {
-    id: "char06", name: "Barbarian", type: "unit", role: "melee",
-    roleLabel: "Melee", desc: "Hits hard. Easy to kill.",
-    manaCost: 4, hp: 110, damage: 45, attackCooldown: 1.0,
-    moveSpeed: 1.2, range: 20, radius: 16,
-    color: "#e2a85a", accent: "#5a2510",
+    id: "char06", name: "Zeus", type: "unit", role: "mage",
+    roleLabel: "Mage", desc: "Lance des éclairs divins.",
+    manaCost: 7, hp: 140, damage: 70, attackCooldown: 1.8,
+    moveSpeed: 0.7, range: 200, radius: 18,
+    color: "#fff28a", accent: "#a8771a",
     icon: "assets/icons/06.png",
-    takesExtraDamage: 1.5,
+    projectile: { speed: 760, color: "#fff58a", aoeRadius: 28 },
     sprite: mkSprite("char06", 0.496, 0.890, 110),
   },
 
@@ -280,7 +280,7 @@ const UNITS = {
   char20: {
     id: "char20", name: "Stone Golem", type: "unit", role: "giant",
     roleLabel: "Golem", desc: "Smashes castles. Very slow.",
-    manaCost: 8, hp: 600, damage: 60, attackCooldown: 2.5,
+    manaCost: 8, hp: 950, damage: 60, attackCooldown: 2.5,
     moveSpeed: 0.4, range: 30, radius: 28,
     color: "#a4adb5", accent: "#3d4860",
     icon: "assets/icons/20.png",
@@ -314,4 +314,74 @@ const CARD_POOL = [
 
 function getCardDef(id) {
   return UNITS[id] || SPELLS[id] || null;
+}
+
+// =============================================================================
+// CAMPAIGN AI PROFILES — controls how the enemy AI plays each campaign stage.
+// 6 stages of escalating difficulty. Each profile bundles every lever:
+//
+//   manaMul          : multiplier on AI mana regen (1.0 = same as player)
+//   firstActionDelay : seconds before the AI's very first action of the match
+//   decisionInterval : [min, max] seconds between successive AI decisions
+//   spells           : array of spell ids the AI is allowed to cast
+//   cardTier         : 1 = cheap units only (cost ≤ 4),
+//                      2 = +tanks (cost ≤ 6),
+//                      3 = all units (full pool)
+//   misplayChance    : 0..1 probability of picking a random affordable card
+//                      instead of the strategic best (simulates an imperfect AI)
+//   combo            : true → AI may spawn 2 cards in quick succession when it
+//                      has enough mana, simulating coordinated pushes
+//
+// The tuning follows the design doc:
+//   • staircase progression (each stage adds one new layer)
+//   • mana ramp ~ linear (0.6 → 1.25)
+//   • decision interval ~ geometric (each step × 0.85)
+//   • misplay chance ~ halved every 2 stages (30 → 18 → 12 → 8 → 5 → 2 %)
+// =============================================================================
+// Globally softened by ~25 % across all stages — fewer mana for the AI,
+// longer warm-up + decision intervals, and more misplays at every level.
+// Stage 1 in particular is now a real "tutorial" stage with a generous
+// 8 s opener and an 0.45 misplay rate.
+const STAGE_AI_PROFILES = [
+  // index 0 unused (stages are 1-based when displayed but 0-based in code)
+  { manaMul: 0.45, firstActionDelay: 8.0, decisionInterval: [4.0, 6.0],
+    spells: [],                       cardTier: 1, misplayChance: 0.45, combo: false,
+    label: "Apprenti" },
+  { manaMul: 0.60, firstActionDelay: 6.0, decisionInterval: [3.0, 5.0],
+    spells: [],                       cardTier: 1, misplayChance: 0.30, combo: false,
+    label: "Recrue" },
+  { manaMul: 0.75, firstActionDelay: 4.5, decisionInterval: [2.5, 4.0],
+    spells: ["heal"],                 cardTier: 2, misplayChance: 0.20, combo: false,
+    label: "Soldat" },
+  { manaMul: 0.85, firstActionDelay: 3.5, decisionInterval: [2.0, 3.2],
+    spells: ["heal"],                 cardTier: 2, misplayChance: 0.13, combo: false,
+    label: "Vétéran" },
+  { manaMul: 0.95, firstActionDelay: 2.5, decisionInterval: [1.5, 2.8],
+    spells: ["heal", "fireball"],     cardTier: 3, misplayChance: 0.08, combo: true,
+    label: "Capitaine" },
+  { manaMul: 1.10, firstActionDelay: 2.0, decisionInterval: [1.2, 2.4],
+    spells: ["heal", "fireball"],     cardTier: 3, misplayChance: 0.04, combo: true,
+    label: "Champion" },
+];
+
+// Per-card AI tier — which tier(s) of the campaign can spawn this card.
+// Cards not in `cardTier` 1 will never appear in the AI's hand on stage 1, etc.
+// Tier 1: cheap melee + cheap ranged
+// Tier 2: + tanks (cost 5-6)
+// Tier 3: + giants (cost 7-8)
+const AI_CARD_TIER = {
+  // Stage-1 friendly (cheap, no big tanks/giants)
+  char02: 1, char03: 1, char09: 1, char11: 1, char14: 1,
+  char15: 1, char16: 1, char18: 1,
+  // Stage-2+ — mid-cost units & spells
+  char01: 2, char04: 2, char08: 2, char10: 2, char12: 2, char13: 2, char17: 2,
+  fireball: 2, heal: 2,
+  // Stage-3+ — heavy tanks, bosses, and legendaries (Zeus, Minotaur, Golem)
+  char05: 2, char07: 3, char06: 3, char19: 3, char20: 3,
+};
+
+function aiCardAllowed(cardId, tier) {
+  const t = AI_CARD_TIER[cardId];
+  if (t == null) return true;
+  return t <= tier;
 }

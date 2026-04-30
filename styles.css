@@ -7,13 +7,55 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  /* iOS Safari: 100dvh follows the dynamic viewport (URL bar shrinking
+     no longer creates jumpy layouts). Falls back to 100% on older browsers. */
+  min-height: 100dvh;
   background: #06090d;
   color: #f3f3f3;
   font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+  /* Mobile: kill the long-press context menu, blue tap highlight, and
+     pull-to-refresh / swipe-back gestures. */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
+
+/* Canvas itself never scrolls or zooms during drag interactions */
+#battlefield {
+  touch-action: none;
+  /* Sharp cartoon scaling on retina screens — both Chrome/Safari and
+     legacy WebKit hints. */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* Cartoon-style PNG icons stay crisp instead of blurred when the browser
+   scales them (especially on hi-DPI mobile screens). */
+.card .art img,
+.hero-card .hc-art img,
+.hero-cell img,
+.hero-slot img,
+.bar-castle,
+.menu-tab img,
+.special-deal-img,
+.coin-pack .pack-coins,
+.coin-pack .pack-video,
+#vs-badge,
+.menu-logo img {
+  image-rendering: -webkit-optimize-contrast;
+}
+.card,
+.hp-bar,
+.menu-tab,
+.bottom-icon,
+.big-menu-btn,
+.btn-find-match,
+.map-stage,
+.hero-slot { touch-action: manipulation; }
 
 #game-shell {
   position: relative;
@@ -43,93 +85,148 @@ html, body {
 }
 
 /* ============================================================================
-   TOP HUD
+   TOP HUD — image-based HP bars (parallelograms) with VS badge in the middle
    ============================================================================ */
 #top-hud {
   position: absolute;
-  top: 2%;
+  top: 1.5%;
   left: 0;
   right: 0;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;     /* cluster around the VS in the middle */
   align-items: flex-start;
-  padding: 0 3%;
+  padding: 26px 0 0;
+  gap: 36px;                   /* room around the VS so bars don't overlap it */
   pointer-events: none;
 }
 #top-hud > * { pointer-events: auto; }
 
-.castle-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  width: 25%;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+.hp-bar {
+  position: relative;
+  /* Fixed-ish width so both bars hug the VS instead of stretching to edges */
+  flex: 0 0 auto;
+  width: clamp(260px, 28vw, 380px);
+  /* aspect ratio of green_bar_bg.png (507 × 90) so labels & fg align cleanly */
+  aspect-ratio: 507 / 90;
+  display: block;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
+}
+.hp-bar img {
+  position: absolute;
+  display: block;
   pointer-events: none;
 }
-.castle-stat.right { align-items: flex-end; }
-.castle-stat .label {
-  font-size: 14px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #f1d99c;
-  margin-bottom: 4px;
-  font-weight: bold;
-}
-.castle-stat .bar {
-  width: 100%;
-  height: 18px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
-  overflow: hidden;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
-}
-.castle-stat .fill {
-  height: 100%;
-  width: 100%;
-  transition: width 0.25s ease;
-  position: relative;
-}
-.castle-stat .fill::after {
-  content: "";
-  position: absolute;
+.hp-bar .bar-bg {
   inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 50%);
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
 }
-.castle-stat .fill.player { background: linear-gradient(180deg, #4cd07a, #1f8a4a); }
-.castle-stat .fill.enemy  { background: linear-gradient(180deg, #ff7676, #b32626); }
-.castle-stat .hp {
-  font-size: 12px;
-  color: #d8d8d8;
-  margin-top: 2px;
+.hp-bar .bar-fg {
+  /* Frame is 507×90, fill is 480×62 → 13.5px / 14px insets. */
+  top: 8%;
+  width: 94.7%;          /* 480 / 507 */
+  height: 68.9%;         /* 62 / 90  */
+  transition: clip-path 0.25s ease;
+}
+/* Player bar drains LEFT → RIGHT: empty area grows from the left edge,
+   so the fill stays anchored to the RIGHT and is clipped from the left. */
+.hp-bar.player .bar-fg {
+  right: 0%;
+  clip-path: inset(0 0 0 calc(100% - var(--hp, 100%)));
+}
+/* Enemy bar drains RIGHT → LEFT: empty area grows from the right edge,
+   so the fill stays anchored to the LEFT and is clipped from the right. */
+.hp-bar.enemy .bar-fg {
+  left: 0%;
+  clip-path: inset(0 calc(100% - var(--hp, 100%)) 0 0);
 }
 
+.hp-bar .bar-label {
+  position: absolute;
+  top: -22px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  font-weight: bold;
+  color: #f1d99c;
+  text-transform: uppercase;
+}
+.hp-bar.player .bar-label { left: 4%; }
+.hp-bar.enemy .bar-label  { right: 4%; }
+
+.hp-bar .bar-text {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  font-size: clamp(11px, 1.05vw, 16px);
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 1px;
+}
+/* push HP text inward to leave room for the castle icon at the bar's inner end */
+.hp-bar.player .bar-text { left: 10%; }
+.hp-bar.enemy .bar-text  { right: 10%; }
+
+/* ----- Castle icon overlay on each HP bar (inner end, near the VS) ----- */
+.hp-bar .bar-castle {
+  position: absolute;
+  /* size relative to bar width — circle disc fits the bar's inner end */
+  width: 19%;
+  height: auto;
+  top: 50%;
+  z-index: 4;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+}
+/* Castle icons sit on the INNER end of each bar and overhang slightly toward
+   the VS badge — matches the reference where the icon is anchored to the
+   bar's inner tip with about a third of its width hanging over. */
+.hp-bar.player .bar-castle { right: -7%; }
+.hp-bar.enemy  .bar-castle { left: -7%; }
+
+/* ----- Center column: VS badge + timer + buttons ----- */
 #center-hud {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+#vs-badge {
+  display: block;
+  width: clamp(56px, 6vw, 88px);
+  height: auto;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6));
+  margin-top: -10px;
+  pointer-events: none;
 }
 #match-timer {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: bold;
   color: #ffe9a7;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
   background: rgba(20, 14, 0, 0.6);
-  padding: 4px 16px;
+  padding: 2px 14px;
   border-radius: 8px;
   border: 2px solid rgba(255, 233, 167, 0.5);
   letter-spacing: 1px;
+}
+.hud-buttons {
+  display: flex;
+  gap: 6px;
 }
 .hud-btn {
   background: rgba(20, 14, 0, 0.75);
   border: 2px solid rgba(255, 233, 167, 0.5);
   color: #ffe9a7;
   font-weight: bold;
-  font-size: 14px;
-  padding: 6px 12px;
+  font-size: 13px;
+  padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
-  min-width: 44px;
+  min-width: 38px;
   transition: filter 0.12s, transform 0.08s;
 }
 .hud-btn:hover { filter: brightness(1.2); }
@@ -150,206 +247,418 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  gap: 18px;
-  padding: 0 3%;
+  gap: clamp(6px, 1.6vmin, 18px);
+  padding: 0 clamp(8px, 2vmin, 24px);
+  flex-wrap: wrap;             /* let mana stack above the hand on tiny screens */
 }
 
+/* ============================================================================
+   MANA — 10 hexagonal energy crystals with pop / drain / insufficient FX
+   ============================================================================ */
 #mana-block {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 230px;
-  background: linear-gradient(180deg, rgba(8, 22, 50, 0.85), rgba(0, 8, 26, 0.9));
-  border: 2px solid rgba(140, 200, 255, 0.55);
-  border-radius: 10px;
-  padding: 8px 10px 10px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+  width: clamp(170px, 22vmin, 260px);
+  background:
+    radial-gradient(ellipse at top, rgba(80, 140, 220, 0.25) 0%, rgba(0,0,0,0) 60%),
+    linear-gradient(180deg, rgba(8, 22, 50, 0.92), rgba(0, 6, 22, 0.94));
+  border: 2px solid rgba(140, 200, 255, 0.6);
+  border-radius: clamp(8px, 1.2vmin, 12px);
+  padding: clamp(6px, 1vmin, 10px) clamp(7px, 1.2vmin, 12px) clamp(8px, 1.4vmin, 14px);
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 0 24px rgba(80, 160, 255, 0.18);
+  position: relative;
 }
+#mana-block.shake { animation: mana-block-shake 0.32s ease-in-out; }
+@keyframes mana-block-shake {
+  0%,100% { transform: translate(0, 0); }
+  25%     { transform: translate(-3px, 0); }
+  50%     { transform: translate(3px, 0); }
+  75%     { transform: translate(-2px, 0); }
+}
+
 .mana-label {
-  font-size: 12px;
-  letter-spacing: 2px;
+  font-family: "Cinzel", "Trebuchet MS", serif;
+  font-size: clamp(9px, 1.2vmin, 12px);
+  letter-spacing: 3px;
   color: #8fc8ff;
-  margin-bottom: 8px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-  font-weight: bold;
+  margin-bottom: clamp(5px, 1vmin, 10px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+  font-weight: 700;
   display: flex;
-  gap: 8px;
+  gap: clamp(5px, 0.8vmin, 10px);
   align-items: center;
 }
 .mana-label #mana-text {
-  background: rgba(0,0,0,0.5);
-  color: #fff;
-  padding: 1px 6px;
+  background: linear-gradient(180deg, #1c3766, #0a1a36);
+  color: #d8ecff;
+  padding: 1px 7px;
   border-radius: 4px;
-  font-weight: bold;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
   letter-spacing: 1px;
+  border: 1px solid rgba(140, 200, 255, 0.4);
 }
+
 #mana-crystals {
   display: flex;
-  gap: 4px;
+  gap: clamp(2px, 0.4vmin, 3px);
   width: 100%;
-  height: 18px;
+  height: clamp(16px, 2.6vmin, 26px);
 }
 .mana-pip {
   flex: 1 1 0;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(110, 180, 240, 0.4);
-  border-radius: 3px;
   position: relative;
-  overflow: hidden;
-  transition: background 0.18s ease;
+  background: linear-gradient(180deg, rgba(20,30,55,0.9), rgba(8,12,28,0.95));
+  /* hexagon shape (pointy top/bottom) */
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  transition: filter 0.18s ease, transform 0.12s ease;
+}
+.mana-pip::after {
+  /* inner highlight that animates on full */
+  content: "";
+  position: absolute;
+  inset: 2px;
+  clip-path: inherit;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.0) 0%,
+    rgba(255,255,255,0.0) 100%);
+  transition: background 0.2s ease;
+  pointer-events: none;
 }
 .mana-pip.full {
-  background: linear-gradient(180deg, #b3e0ff, #1e6dff);
-  border-color: #cfe9ff;
-  box-shadow: 0 0 8px rgba(80, 160, 255, 0.7), inset 0 1px 0 rgba(255,255,255,0.5);
+  background: linear-gradient(180deg, #b3e0ff 0%, #4d9aff 55%, #1f4dbe 100%);
+  box-shadow:
+    0 0 10px rgba(110, 200, 255, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -2px 4px rgba(0, 20, 80, 0.55);
+  animation: pip-breathe 2.2s ease-in-out infinite;
+}
+.mana-pip.full::after {
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.55) 0%,
+    rgba(255,255,255,0.0) 45%);
+}
+.mana-pip.partial {
+  /* a vertical fill from the bottom for the in-progress pip */
+  background: linear-gradient(180deg, rgba(20,30,55,0.9), rgba(8,12,28,0.95));
 }
 .mana-pip.partial::before {
   content: "";
   position: absolute;
-  left: 0; bottom: 0; right: 0;
+  left: 0; right: 0; bottom: 0;
   height: var(--fill, 0%);
   background: linear-gradient(180deg, #b3e0ff, #1e6dff);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+  clip-path: inherit;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+  transition: height 0.18s ease;
+}
+
+@keyframes pip-breathe {
+  0%, 100% { filter: brightness(1.0); }
+  50%      { filter: brightness(1.18); }
+}
+
+/* the moment a new pip is filled — radial flare + bouncy pop */
+.mana-pip.popping { animation: pip-pop 320ms cubic-bezier(0.2, 0.9, 0.2, 1.4); }
+@keyframes pip-pop {
+  0%   { transform: scale(0.4);  filter: brightness(2.4); }
+  40%  { transform: scale(1.25); filter: brightness(1.6); }
+  100% { transform: scale(1.0);  filter: brightness(1.0); }
+}
+.mana-pip.popping::before {
+  /* radial flare */
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 90px; height: 90px;
+  margin: -45px 0 0 -45px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(180,220,255,0.85) 0%, rgba(80,160,255,0) 60%);
+  pointer-events: none;
+  animation: pip-flare 360ms ease-out forwards;
+  z-index: 5;
+}
+@keyframes pip-flare {
+  0%   { transform: scale(0.2); opacity: 0.95; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* spent — drain animation, applied with stagger from JS */
+.mana-pip.draining { animation: pip-drain 240ms ease-in forwards; }
+@keyframes pip-drain {
+  0%   { filter: brightness(1) saturate(1); transform: scale(1); }
+  60%  { filter: brightness(1.6) saturate(1.4); transform: scale(0.85); }
+  100% { filter: brightness(0.4) saturate(0.3); transform: scale(0.9); }
+}
+
+/* unaffordable feedback — short red flash on the missing pips */
+.mana-pip.insufficient {
+  animation: pip-deny 260ms ease-out;
+}
+@keyframes pip-deny {
+  0%, 100% { filter: brightness(1) hue-rotate(0deg); }
+  35%      { filter: brightness(1.6) hue-rotate(-110deg) saturate(2); }
+  70%      { filter: brightness(1.3) hue-rotate(-110deg) saturate(2); }
 }
 
 /* ============================================================================
-   HAND OF CARDS
+   HAND OF CARDS — modern fantasy redesign with rarity tiers + role colors
    ============================================================================ */
 #hand {
   display: flex;
-  gap: 10px;
+  gap: clamp(4px, 0.9vmin, 10px);
   align-items: flex-end;
+  perspective: 800px;
 }
+
 .card {
-  width: 110px;
-  height: 168px;
+  /* Fluid sizing — scales with the viewport via vmin (the smaller of vh/vw),
+     bounded so the card stays legible on tiny phones and never explodes on
+     ultra-wide displays. Aspect ratio is locked to the original 122:184. */
+  width: clamp(78px, 11vmin, 132px);
+  aspect-ratio: 122 / 184;
+  height: auto;
   position: relative;
   cursor: grab;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 7px 6px;
-  border-radius: 12px;
+  padding: clamp(5px, 0.9vmin, 9px) clamp(4px, 0.8vmin, 8px) clamp(4px, 0.7vmin, 8px);
+  border-radius: clamp(8px, 1.2vmin, 13px);
+  /* leather + subtle highlight */
   background:
-    linear-gradient(180deg, rgba(255,250,235,0.15) 0%, rgba(0,0,0,0) 30%),
-    linear-gradient(180deg, #4a3220, #2b1d12);
+    linear-gradient(180deg, rgba(255,225,180,0.18) 0%, rgba(0,0,0,0) 28%),
+    linear-gradient(180deg, #4a3220 0%, #2b1d12 100%);
   border: 2px solid #c4a36a;
   box-shadow:
-    0 6px 12px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 230, 180, 0.25),
-    inset 0 -1px 0 rgba(0,0,0,0.4);
-  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1.2), box-shadow 0.15s ease;
+    0 6px 14px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 230, 180, 0.28),
+    inset 0 -1px 0 rgba(0,0,0,0.45);
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1.2),
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
   color: #fff;
+  transform-style: preserve-3d;
+  animation: card-draw-in 380ms cubic-bezier(0.2, 0.85, 0.25, 1.15) both;
 }
-.card.unit { border-color: #c4a36a; }
-.card.spell { border-color: #c47bd6; }
-.card.spell-fire { border-color: #d68a3a; }
-.card.spell-heal { border-color: #80c98a; }
+@keyframes card-draw-in {
+  0%   { transform: translateY(60px) scale(0.85); opacity: 0; }
+  60%  { opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Rarity-tinted frame edges */
+.card.rarity-common    { border-color: #b08c4a; }
+.card.rarity-rare      { border-color: #87b6e0; box-shadow: 0 6px 14px rgba(0,0,0,.65), 0 0 12px rgba(110,180,255,.4), inset 0 1px 0 rgba(255,230,180,.28); }
+.card.rarity-epic      { border-color: #d27dff; box-shadow: 0 6px 14px rgba(0,0,0,.65), 0 0 14px rgba(190,110,255,.55), inset 0 1px 0 rgba(255,230,180,.32); }
+.card.rarity-legendary {
+  border-color: #ffc14a;
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.65),
+    0 0 14px rgba(255, 193, 74, 0.55),
+    inset 0 1px 0 rgba(255, 230, 180, 0.32);
+}
+
+/* Cards the player can afford get a soft golden pulse */
+.card.affordable {
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.65),
+    0 0 14px rgba(255, 215, 120, 0.55),
+    inset 0 1px 0 rgba(255, 230, 180, 0.3);
+}
+.card.affordable .cost { animation: cost-gem-pulse 1.6s ease-in-out infinite; }
+@keyframes cost-gem-pulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.6), 0 0 10px rgba(110,200,255,0.7); }
+  50%      { transform: scale(1.08); box-shadow: 0 2px 8px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.7), 0 0 18px rgba(110,200,255,1.0); }
+}
 
 .card:hover {
-  transform: translateY(-10px) scale(1.05);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 230, 180, 0.35);
+  transform: translateY(-12px) scale(1.06) rotateX(4deg);
+  box-shadow:
+    0 16px 28px rgba(0, 0, 0, 0.75),
+    0 0 18px rgba(255, 215, 120, 0.55),
+    inset 0 1px 0 rgba(255, 230, 180, 0.4);
 }
 .card:active { cursor: grabbing; }
 
 .card.disabled {
-  filter: grayscale(0.85) brightness(0.5);
+  filter: grayscale(0.9) brightness(0.45) contrast(0.95);
   cursor: not-allowed;
 }
 .card.disabled:hover { transform: none; }
+
 .card.shake { animation: card-shake 0.45s ease-in-out; }
 @keyframes card-shake {
   0%, 100% { transform: translate(0, 0); }
   20% { transform: translate(-4px, 0); filter: brightness(1.4) sepia(0.8) hue-rotate(-30deg); }
-  40% { transform: translate(4px, 0); filter: brightness(1.4) sepia(0.8) hue-rotate(-30deg); }
+  40% { transform: translate(4px, 0);  filter: brightness(1.4) sepia(0.8) hue-rotate(-30deg); }
   60% { transform: translate(-3px, 0); filter: brightness(1.4) sepia(0.8) hue-rotate(-30deg); }
-  80% { transform: translate(3px, 0); filter: brightness(1.4) sepia(0.8) hue-rotate(-30deg); }
+  80% { transform: translate(3px, 0);  filter: brightness(1.4) sepia(0.8) hue-rotate(-30deg); }
 }
 .card.dragging { opacity: 0.35; transform: none; }
 
+/* ----- Cost gem (top-left) ----- */
 .card .cost {
   position: absolute;
-  top: -10px;
-  left: -10px;
-  width: 30px;
-  height: 30px;
-  background: radial-gradient(circle at 35% 30%, #b3e0ff, #1e6dff 70%);
+  top: clamp(-11px, -1vmin, -7px);
+  left: clamp(-11px, -1vmin, -7px);
+  width: clamp(22px, 3vmin, 34px);
+  height: clamp(22px, 3vmin, 34px);
+  background: radial-gradient(circle at 32% 28%, #d9eeff 0%, #4d9aff 55%, #0e3ea8 100%);
   border: 2px solid #fff;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  font-size: 16px;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: clamp(11px, 1.7vmin, 17px);
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.6);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255,255,255,0.7),
+    inset 0 -2px 3px rgba(0, 30, 90, 0.5),
+    0 0 10px rgba(110,200,255,0.6);
   z-index: 2;
 }
 
+/* ----- Role pictogram (top-right) ----- */
 .card .role-tag {
   position: absolute;
-  top: -8px;
-  right: 6px;
-  font-size: 9px;
-  letter-spacing: 1px;
+  top: clamp(-6px, -0.7vmin, -4px);
+  right: clamp(-6px, -0.7vmin, -4px);
+  width: clamp(18px, 2.4vmin, 26px);
+  height: clamp(18px, 2.4vmin, 26px);
   background: linear-gradient(180deg, #efd296, #b8853a);
   color: #2b1d12;
-  padding: 2px 6px;
-  border-radius: 8px;
-  font-weight: bold;
-  border: 1px solid #2b1d12;
-  text-transform: uppercase;
+  border-radius: 50%;
+  font-size: clamp(9px, 1.3vmin, 13px);
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #2b1d12;
+  box-shadow: 0 2px 4px rgba(0,0,0,.55);
+  letter-spacing: 0;
+  text-transform: none;
 }
+.card .role-tag.role-melee   { background: linear-gradient(180deg, #ffd982, #c08a2a); }
+.card .role-tag.role-tank    { background: linear-gradient(180deg, #c8d8ec, #6c8aaa); }
+.card .role-tag.role-ranged  { background: linear-gradient(180deg, #cdee9e, #4a7a25); }
+.card .role-tag.role-mage    { background: linear-gradient(180deg, #e0a8ff, #7a3ad9); color: #fff; border-color: #2a0e5a; }
+.card .role-tag.role-support { background: linear-gradient(180deg, #ffd9eb, #d870a8); color: #4a1230; border-color: #4a1230; }
+.card .role-tag.role-fast    { background: linear-gradient(180deg, #ffe1a3, #d27c2a); }
+.card .role-tag.role-giant   { background: linear-gradient(180deg, #e8c08a, #8a4f1f); color: #fff; border-color: #2a1408; }
+.card .role-tag.role-spell-fire { background: radial-gradient(circle at 35% 30%, #ffe0a0, #ff6a2a 70%); color: #fff; }
+.card .role-tag.role-spell-heal { background: radial-gradient(circle at 35% 30%, #d8ffd1, #3a8b35 70%); color: #fff; }
 
+/* ----- Art block ----- */
 .card .art {
   width: 100%;
-  height: 80px;
+  /* Roughly 50% of the card height — keeps proportions when the card scales */
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
   background:
-    radial-gradient(ellipse at 50% 80%, rgba(255,255,255,0.08), rgba(0,0,0,0) 70%),
-    linear-gradient(180deg, #d4be8a, #8a6e3e);
+    radial-gradient(ellipse at 50% 78%, rgba(255,255,255,0.10), rgba(0,0,0,0) 70%),
+    linear-gradient(180deg, #d4be8a, #7a5b2f);
   border: 1px solid #2b1d12;
-  border-radius: 6px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: inset 0 0 14px rgba(0,0,0,0.4);
+  box-shadow:
+    inset 0 0 14px rgba(0,0,0,0.4),
+    inset 0 -2px 4px rgba(0,0,0,0.45);
+  position: relative;
 }
-.card .art img { max-width: 100%; max-height: 100%; }
+.card .art::after {
+  /* gentle vignette */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 100%);
+  pointer-events: none;
+}
+.card .art img { max-width: 100%; max-height: 100%; position: relative; z-index: 1; }
 
+/* ----- Name & description ----- */
 .card .name {
-  font-size: 12px;
-  font-weight: bold;
-  margin-top: 6px;
-  letter-spacing: 0.5px;
+  font-family: "Cinzel", "Trebuchet MS", serif;
+  font-size: clamp(9px, 1.25vmin, 13px);
+  font-weight: 700;
+  margin-top: clamp(3px, 0.6vmin, 6px);
+  letter-spacing: 1px;
   text-align: center;
   color: #ffe9a7;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.9);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.95), 0 0 6px rgba(255,200,80,0.18);
   width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .card .desc {
-  font-size: 10px;
+  font-size: clamp(7px, 0.95vmin, 10px);
   line-height: 1.2;
-  color: #e0d7c6;
+  color: #cfc4ad;
   text-align: center;
+  font-style: italic;
   margin-top: 2px;
+  padding: 0 2px;
+  /* Hide the description on tiny cards to keep stats readable */
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
+
+/* ----- Stats (pictos) ----- */
 .card .stats {
   display: flex;
   justify-content: space-around;
+  align-items: center;
   width: 100%;
   margin-top: auto;
-  padding-top: 4px;
+  padding-top: clamp(3px, 0.5vmin, 5px);
   border-top: 1px solid rgba(255, 233, 167, 0.25);
-  font-size: 10px;
-  font-weight: bold;
-  color: #ffe9a7;
+  font-family: "Cinzel", serif;
+  font-size: clamp(9px, 1.3vmin, 13px);
+  font-weight: 900;
+  letter-spacing: 0.5px;
 }
-.card .stats .stat-hp { color: #b8f3a0; }
-.card .stats .stat-dmg { color: #ffba6b; }
+.card .stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+}
+.card .stat-icon {
+  font-size: clamp(8px, 1.1vmin, 12px);
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.9));
+}
+.card .stat-hp  { color: #b8f3a0; }
+.card .stat-dmg { color: #ffba6b; }
+.card .stat-heal{ color: #b8f3a0; }
+.card .stat-aoe { color: #ff9a5a; }
+
+/* When a card is played: brief flash + scale-up + fade out (set via JS) */
+.card.played {
+  animation: card-play-out 320ms ease-out forwards;
+  pointer-events: none;
+}
+@keyframes card-play-out {
+  0%   { transform: translateY(-12px) scale(1.06); filter: brightness(1.5); opacity: 1; }
+  50%  { transform: translateY(-32px) scale(1.18); filter: brightness(2.4); opacity: 0.9; }
+  100% { transform: translateY(-60px) scale(0.6);  filter: brightness(2.0); opacity: 0; }
+}
 
 /* ============================================================================
    TITLE / PAUSE / ENDGAME OVERLAYS
@@ -365,6 +674,48 @@ html, body {
   z-index: 100;
 }
 #title-screen { background: radial-gradient(circle at 50% 30%, rgba(20, 8, 0, 0.55), rgba(0, 0, 0, 0.92)); }
+#title-screen.main-menu {
+  /* Two-layer backdrop:
+       • ::before — a blurred, oversized "cover" of the same image fills the
+         entire screen (eliminates blue side bands)
+       • ::after  — the sharp "contain" version sits on top, fully visible
+                    without zoom or cropping
+     This is the cinematic / "ambilight" effect modern card games use. */
+  background:
+    linear-gradient(180deg, #5da3d8 0%, #305a85 60%, #1a3050 100%); /* fallback only */
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  position: absolute;          /* already overlay-positioned, kept explicit */
+}
+#title-screen.main-menu::before {
+  /* Blurred extended backdrop — fills any gap behind the sharp image. */
+  content: "";
+  position: absolute;
+  inset: -8%;                          /* overflow a bit to hide the blur halo */
+  background:
+    url("game/assets/ui/menu/main_menu_bg.png") center / cover no-repeat;
+  filter: blur(28px) brightness(0.85) saturate(1.05);
+  z-index: 0;
+  pointer-events: none;
+}
+#title-screen.main-menu::after {
+  /* Sharp main image, fully visible, ratio preserved. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    url("game/assets/ui/menu/main_menu_bg.png") center / contain no-repeat;
+  z-index: 1;
+  pointer-events: none;
+}
+/* Make sure the actual menu UI sits above the backdrop layers */
+.menu-screen,
+.menu-icon-row,
+.menu-topbar,
+.menu-logo {
+  z-index: 5;
+}
 #pause-overlay { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
 #endgame { background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); }
 
@@ -445,3 +796,1005 @@ html, body {
   color: #d4b46e;
 }
 .secondary-btn:hover { background: rgba(212, 180, 110, 0.15); }
+
+/* ============================================================================
+   MAIN MENU — full-screen lobby with shop / heroes / arena / map / options
+   ============================================================================ */
+.main-menu {
+  font-family: "Cinzel", "Trebuchet MS", serif;
+}
+
+/* ----- Top gold counter ----- */
+.menu-topbar {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 5;
+}
+.gold-counter {
+  display: flex;
+  align-items: center;
+  background: url("game/assets/ui/menu/GoldBar.png") center / 100% 100% no-repeat;
+  width: 200px;
+  height: 56px;
+  padding: 0 36px 0 60px;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 22px;
+  color: #fff;
+  text-shadow: 0 2px 3px rgba(0,0,0,0.85);
+  position: relative;
+}
+.gold-counter .gold-amount {
+  flex: 1;
+  text-align: center;
+}
+.gold-counter .gold-add {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0;
+}
+
+/* ----- Game logo (top-center, dominant) ----- */
+.menu-logo {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 5;
+  pointer-events: none;
+}
+.menu-logo img {
+  display: block;
+  width: clamp(150px, 16vw, 200px);
+  height: auto;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.65));
+}
+
+/* ----- Menu body (tab content area) ----- */
+.menu-body {
+  position: absolute;
+  inset: 180px 0 92px;          /* push down to clear the logo at the top */
+  display: flex;
+  align-items: center;          /* vertical center so content doesn't stretch */
+  justify-content: center;
+  pointer-events: none;
+}
+.menu-body > .tab-panel {
+  pointer-events: auto;
+  width: auto;                  /* shrink to content */
+  max-width: min(96%, 1100px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== SHOP TAB ===== */
+.shop-row {
+  display: flex;
+  gap: 26px;
+  align-items: center;          /* don't stretch the deal panel vertically */
+  justify-content: center;
+}
+.special-deal {
+  position: relative;
+  flex: 0 0 auto;
+  width: 260px;                 /* keeps the 499×606 PNG aspect ratio */
+  display: flex;
+  flex-direction: column;
+}
+.special-deal-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 14px rgba(0,0,0,0.55));
+}
+.special-deal-foot {
+  position: absolute;
+  bottom: 8%;
+  left: 8%;
+  right: 8%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.special-deal-price {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 900;
+  font-size: 18px;
+  color: #fff;
+  text-shadow: 0 2px 2px rgba(0,0,0,0.85);
+}
+.special-deal-price img { width: 28px; height: 28px; }
+
+/* Shopping section ----- */
+.shopping {
+  flex: 0 0 auto;
+  width: 660px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, rgba(255, 240, 210, 0.06), rgba(0,0,0,0.18)),
+    url("game/assets/ui/menu/Shopping_Box.png") center / cover no-repeat;
+  border: 4px solid #4a2a08;
+  border-radius: 14px;
+  padding: 14px 18px 18px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.55);
+}
+.shopping-title {
+  align-self: center;
+  background: linear-gradient(180deg, #f7d43c, #c0830a);
+  color: #2b1408;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  letter-spacing: 6px;
+  font-size: 22px;
+  padding: 4px 22px;
+  border: 3px solid #4a2a08;
+  border-radius: 8px;
+  margin-top: -28px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+  text-shadow: 0 2px 0 rgba(255,255,255,0.25);
+}
+.coin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 140px);
+  gap: 14px;
+  justify-content: center;
+}
+.coin-pack {
+  position: relative;
+  width: 140px;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  background: transparent;
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 12px 6px 12px;
+}
+.coin-pack .pack-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  border-radius: 10px;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));
+}
+.coin-pack .pack-coins {
+  width: 70%;
+  max-height: 70px;
+  object-fit: contain;
+  z-index: 1;
+  filter: drop-shadow(0 4px 4px rgba(0,0,0,0.4));
+}
+.coin-pack .pack-video {
+  width: 56px;
+  height: 56px;
+  z-index: 1;
+  filter: drop-shadow(0 4px 4px rgba(0,0,0,0.4));
+}
+.coin-pack .pack-amount {
+  z-index: 1;
+  text-align: center;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 18px;
+  color: #2b1408;
+  line-height: 1.05;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+}
+.coin-pack .pack-amount span { font-size: 10px; font-weight: 700; opacity: 0.85; }
+.coin-pack .pack-buy { z-index: 2; }
+.coin-pack .pack-watch-label {
+  z-index: 1;
+  font-size: 11px;
+  font-weight: 900;
+  color: #2b1408;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+/* Buttons (green / orange) — pixel-art style with image background ----- */
+.btn-green, .btn-orange {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.85);
+  border: 2px solid #2c1808;
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+  min-height: 32px;
+  box-shadow: 0 4px 0 #2c1808, inset 0 2px 0 rgba(255,255,255,0.35);
+  transition: transform 0.06s ease, box-shadow 0.06s ease, filter 0.1s ease;
+}
+.btn-green {
+  background: linear-gradient(180deg, #b6e84d 0%, #76b026 50%, #4f8517 100%);
+}
+.btn-orange {
+  background: linear-gradient(180deg, #ffb84a 0%, #f08218 50%, #b95810 100%);
+}
+.btn-green:hover, .btn-orange:hover { filter: brightness(1.08); }
+.btn-green:active, .btn-orange:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #2c1808, inset 0 2px 0 rgba(255,255,255,0.35);
+}
+.btn-big { padding: 12px 30px; font-size: 18px; min-height: 48px; }
+
+/* ===== HEROES TAB ===== */
+.panel-title {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #f7d43c, #c0830a);
+  color: #2b1408;
+  padding: 6px 26px;
+  border: 3px solid #4a2a08;
+  border-radius: 8px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  font-size: 18px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+  z-index: 2;
+}
+.tab-panel[data-tab="heroes"],
+.tab-panel[data-tab="arena"],
+.tab-panel[data-tab="map"],
+.tab-panel[data-tab="options"] {
+  position: relative;
+  padding-top: 40px;
+  flex-direction: column;
+}
+
+.heroes-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 64px);
+  gap: 8px;
+  width: auto;
+  align-content: start;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(40, 20, 10, 0.55);
+  border: 3px solid #4a2a08;
+  border-radius: 12px;
+  max-height: 380px;
+  overflow: auto;
+}
+.hero-cell { width: 64px; height: 64px; }
+.hero-cell {
+  position: relative;
+  aspect-ratio: 1;
+  background: rgba(255, 235, 200, 0.08);
+  border: 2px solid #6b3f15;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hero-cell img { width: 90%; height: auto; }
+.hero-cell .hero-cost {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  background: radial-gradient(circle at 32% 28%, #d9eeff, #1e6dff 65%);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,.9);
+  box-shadow: 0 2px 4px rgba(0,0,0,.6);
+}
+
+/* ===== ARENA TAB ===== */
+.arena-screen {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 8px 0 0;
+}
+
+/* Big orange "FIND MATCH" button — matches the reference */
+.btn-find-match {
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: 4px;
+  color: #fff;
+  text-shadow: 0 2px 0 #4a1a08, 0 0 6px rgba(0,0,0,0.5);
+  background: linear-gradient(180deg, #ffc14a 0%, #ee8a18 50%, #b85812 100%);
+  border: 3px solid #2c1808;
+  border-radius: 10px;
+  padding: 14px 56px;
+  min-width: 320px;
+  box-shadow:
+    0 6px 0 #2c1808,
+    inset 0 3px 0 rgba(255,255,255,0.4),
+    inset 0 -3px 0 rgba(120, 50, 0, 0.5),
+    0 0 18px rgba(255, 200, 120, 0.5);
+  cursor: pointer;
+  transition: transform 0.06s ease, box-shadow 0.06s ease, filter 0.1s ease;
+}
+.btn-find-match:hover { filter: brightness(1.08); }
+.btn-find-match:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 2px 0 #2c1808,
+    inset 0 3px 0 rgba(255,255,255,0.4),
+    inset 0 -2px 0 rgba(120, 50, 0, 0.5);
+}
+
+/* Row of 6 deck-loadout slots */
+.hero-slots {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+}
+.hero-slot {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 55%, rgba(40,20,10,0.85), rgba(15,8,4,0.95));
+  border: 4px solid #f5f1e0;
+  box-shadow:
+    0 4px 6px rgba(0,0,0,0.5),
+    inset 0 0 8px rgba(0,0,0,0.7);
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.hero-slot:hover {
+  transform: translateY(-3px) scale(1.06);
+  border-color: #ffe9a7;
+}
+.hero-slot img {
+  width: 90%;
+  height: 90%;
+  object-fit: contain;
+}
+.hero-slot.empty::before {
+  content: "+";
+  position: absolute;
+  font-family: "Cinzel", serif;
+  font-size: 26px;
+  color: rgba(255, 233, 167, 0.4);
+  font-weight: 900;
+}
+
+/* ===== MAP TAB ===== */
+.map-card {
+  margin: auto;
+  background: rgba(40, 20, 10, 0.55);
+  border: 4px solid #4a2a08;
+  border-radius: 14px;
+  padding: 14px 14px 18px;
+  text-align: center;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.map-card p { color: #ffe9a7; font-weight: bold; margin: 0 0 18px; }
+
+/* Map canvas: cartoon background with stages absolutely positioned along the path */
+.map-canvas {
+  position: relative;
+  width: clamp(800px, 90vw, 1200px);   /* larger render → sharper map + bigger stages */
+  aspect-ratio: 2099 / 789;
+  background:
+    url("game/assets/ui/menu/LvlMap02.png") center / 100% 100% no-repeat;
+  border: 3px solid #2c1808;
+  border-radius: 10px;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.55);
+  overflow: visible;
+  image-rendering: -webkit-optimize-contrast;
+}
+.map-stage {
+  position: absolute;
+  /* Source PNGs are small (35×32 px). Render close to native size so they
+     stay crisp; clamp to a small pixel range so they don't get blurred by
+     upscaling at any viewport. */
+  width: clamp(28px, 3.8%, 48px);
+  /* No fixed aspect-ratio — height follows the inner <img>'s natural ratio
+     since the available/lock and 0-3 star PNGs have different heights. */
+  transform: translate(-50%, -50%); /* centered on (left%, top%) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+.map-stage:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+.map-stage.locked { cursor: not-allowed; filter: grayscale(0.4) brightness(0.85); }
+.map-stage.locked:hover { transform: translate(-50%, -50%); }
+.map-stage img {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.55));
+  image-rendering: -webkit-optimize-contrast; /* keeps native art sharp */
+}
+.map-stage .stage-num {
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #ffd97a, #b88010);
+  color: #2b1408;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 9px;
+  padding: 1px 5px;
+  border: 1.5px solid #2c1808;
+  border-radius: 5px;
+  box-shadow: 0 2px 3px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+/* The blinking gold halo was removed at user's request — current stage is now
+   only highlighted via slightly brighter saturation. */
+.map-stage.current { filter: brightness(1.05) saturate(1.1); }
+
+.map-stage.locked .stage-num {
+  background: linear-gradient(180deg, #c8b18b, #6b5430);
+  color: #fff;
+  opacity: 0.85;
+}
+
+/* ===== ENDGAME — stars + score breakdown ===== */
+.end-stars {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 4px 0 14px;
+}
+.end-stars .end-star {
+  font-size: 44px;
+  line-height: 1;
+  color: #4a3520;
+  text-shadow: 0 2px 0 #1a0e04;
+  transform: scale(0.85);
+  transition: transform 0.4s cubic-bezier(0.2, 0.85, 0.2, 1.4), color 0.4s ease, text-shadow 0.4s ease;
+}
+.end-stars .end-star.lit {
+  color: #ffd23a;
+  text-shadow:
+    0 2px 0 #6a3a08,
+    0 0 14px rgba(255, 200, 80, 0.85);
+  transform: scale(1.1);
+}
+.end-stars .end-star.lit:nth-child(2) { transition-delay: 0.18s; }
+.end-stars .end-star.lit:nth-child(3) { transition-delay: 0.36s; }
+
+.end-score-block {
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid #d4b46e;
+  border-radius: 10px;
+  padding: 10px 16px 12px;
+  margin: 6px 0 18px;
+  text-align: left;
+  min-width: 320px;
+}
+.end-score-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 22px;
+  color: #ffe9a7;
+  border-bottom: 1px solid rgba(255, 233, 167, 0.25);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  letter-spacing: 2px;
+}
+.end-score-total strong {
+  color: #fff;
+  font-size: 26px;
+}
+.end-score-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  color: #d4c5a4;
+}
+.end-score-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px dashed rgba(255, 233, 167, 0.12);
+}
+.end-score-list li:last-child { border-bottom: none; }
+.end-score-list strong { color: #ffe9a7; min-width: 36px; text-align: right; }
+
+/* ===== OPTIONS TAB ===== */
+.options-card {
+  margin: auto;
+  background: rgba(40, 20, 10, 0.55);
+  border: 4px solid #4a2a08;
+  border-radius: 14px;
+  padding: 30px 50px;
+  min-width: 380px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.options-card .option-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #ffe9a7;
+  font-weight: bold;
+  font-family: "Cinzel", serif;
+  letter-spacing: 1px;
+  font-size: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,233,167,0.15);
+}
+.options-card .option-row input {
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+}
+.options-card .btn-big { margin: 12px auto 0; }
+
+/* ===== BOTTOM TAB BAR ===== */
+.menu-tabs {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  height: 76px;
+  width: clamp(620px, 70%, 880px);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: linear-gradient(180deg, #b15c0e 0%, #7a3a08 100%);
+  border-top: 4px solid #4a2a08;
+  border-left: 4px solid #4a2a08;
+  border-right: 4px solid #4a2a08;
+  border-radius: 14px 14px 0 0;
+  z-index: 4;
+  box-shadow: 0 -6px 14px rgba(0,0,0,0.5);
+}
+.menu-tab {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #fff5d6;
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 1px;
+  border-right: 2px solid rgba(0,0,0,0.25);
+  transition: filter 0.12s, background 0.12s;
+}
+.menu-tab:last-child { border-right: none; }
+.menu-tab img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 1px rgba(0,0,0,0.5));
+}
+.menu-tab:hover { filter: brightness(1.2); }
+.menu-tab.active {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.0), rgba(0,0,0,0.25)),
+    url("game/assets/ui/menu/Btn_orange_active.png") center / 100% 100% no-repeat,
+    #6b3a08;
+  color: #ffe18a;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+}
+.menu-tab.active img { transform: translateY(-2px); }
+
+/* ============================================================================
+   NEW MAIN MENU LAYOUT  (over the cartoon Castle Clash artwork)
+   ============================================================================ */
+.menu-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.menu-screen > * { pointer-events: auto; }
+.menu-screen.hidden { display: none; }
+
+/* HOME — 4 main vertical buttons sit on the path in the lower-centre of
+   the artwork. Positioned by % so they stay aligned with the path on any
+   screen size since the background uses `contain`. */
+.menu-home .home-buttons {
+  position: absolute;
+  left: 50%;
+  bottom: 11%;                    /* sweet spot — clears the logo, not too low */
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.6vmin, 7px);  /* tight stack like the reference */
+  align-items: center;
+}
+
+.big-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 1vmin, 12px);
+  /* Compact width similar to the reference (~28 % of menu) with a fluid range */
+  width: clamp(190px, 22vmin, 270px);
+  padding: clamp(6px, 1vmin, 9px) clamp(10px, 1.6vmin, 18px);
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: clamp(12px, 1.7vmin, 16px);
+  letter-spacing: 1.5px;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.85);
+  background: linear-gradient(180deg, #6fa3e0 0%, #2d68b8 60%, #143f80 100%);
+  border: 2px solid #0c2950;
+  border-radius: clamp(7px, 1vmin, 10px);
+  cursor: pointer;
+  box-shadow:
+    0 4px 0 #0c2950,
+    inset 0 2px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.1s ease;
+}
+.big-menu-btn:hover { filter: brightness(1.08); }
+.big-menu-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #0c2950, inset 0 2px 0 rgba(255,255,255,0.35);
+}
+/* Primary (JOUER) — gold to stand out, slightly larger */
+.big-menu-btn.primary {
+  background: linear-gradient(180deg, #ffd070 0%, #f29a18 55%, #b95810 100%);
+  border-color: #4a1a08;
+  box-shadow:
+    0 4px 0 #4a1a08,
+    inset 0 2px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 0 rgba(120, 50, 0, 0.5);
+  font-size: clamp(13px, 1.9vmin, 18px);
+  padding: clamp(7px, 1.2vmin, 11px) clamp(10px, 1.6vmin, 18px);
+}
+.big-menu-btn.primary:active { box-shadow: 0 1px 0 #4a1a08, inset 0 2px 0 rgba(255,255,255,0.4); }
+.big-menu-btn .big-menu-icon {
+  font-size: clamp(14px, 1.9vmin, 19px);
+  width: clamp(20px, 2.6vmin, 26px);
+  text-align: center;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.8));
+}
+.big-menu-btn.disabled-btn { opacity: 0.92; }
+.big-menu-btn.disabled-btn:hover { filter: brightness(1.05); }
+
+/* Bottom icon row */
+.menu-icon-row {
+  position: absolute;
+  bottom: clamp(10px, 1.5vmin, 22px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: clamp(4px, 0.7vmin, 8px);
+  z-index: 5;
+}
+.bottom-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: clamp(56px, 7vmin, 80px);
+  padding: clamp(4px, 0.7vmin, 7px) clamp(3px, 0.5vmin, 6px);
+  background: linear-gradient(180deg, #8a6cd6 0%, #553a96 100%);
+  border: 2px solid #2a1652;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.85);
+  box-shadow:
+    0 3px 0 #2a1652,
+    inset 0 2px 0 rgba(255,255,255,0.25),
+    inset 0 -2px 0 rgba(0,0,0,0.3);
+  transition: transform 0.08s ease, filter 0.1s ease;
+}
+.bottom-icon:hover { filter: brightness(1.1); }
+.bottom-icon:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #2a1652, inset 0 2px 0 rgba(255,255,255,0.25);
+}
+.bottom-icon[data-cosmetic] { opacity: 0.92; }
+.bottom-icon .bot-icon-glyph {
+  font-size: clamp(15px, 2vmin, 20px);
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.7));
+}
+.bottom-icon .bot-icon-label {
+  font-size: clamp(7px, 0.9vmin, 9px);
+  white-space: nowrap;
+}
+
+/* Back button on map / options screens */
+.back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: linear-gradient(180deg, #ffb84a 0%, #f08218 50%, #b95810 100%);
+  border: 3px solid #2c1808;
+  border-radius: 10px;
+  padding: 8px 18px;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: #fff;
+  text-shadow: 0 2px 0 #4a1a08;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #2c1808, inset 0 2px 0 rgba(255,255,255,0.4);
+  z-index: 5;
+}
+.back-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #2c1808, inset 0 2px 0 rgba(255,255,255,0.4);
+}
+
+/* Map / Options / Heroes screens get a darkening backdrop so the home art doesn't show through */
+#menu-map-screen,
+#menu-options-screen,
+#menu-heroes-screen {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+/* ============================================================================
+   HEROES SCREEN — full collection of all 20 unit cards (+ 2 spells) with
+   their cost, rarity, stats and special abilities.
+   ============================================================================ */
+.heroes-card {
+  margin: auto;
+  background: rgba(40, 20, 10, 0.6);
+  border: 4px solid #4a2a08;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.6);
+  width: clamp(560px, 90vw, 1080px);
+  max-height: 78vh;
+  overflow-y: auto;
+}
+.heroes-collection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: clamp(10px, 1.4vmin, 16px);
+  align-items: stretch;
+  padding: 8px;
+}
+.hero-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: clamp(8px, 1.1vmin, 12px) 8px 10px;
+  background:
+    linear-gradient(180deg, rgba(255,225,180,0.16) 0%, rgba(0,0,0,0) 28%),
+    linear-gradient(180deg, #4a3220 0%, #2b1d12 100%);
+  border: 2px solid #c4a36a;
+  border-radius: 12px;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,230,180,0.25);
+  color: #fff;
+}
+.hero-card.rarity-common    { border-color: #b08c4a; }
+.hero-card.rarity-rare      { border-color: #87b6e0; box-shadow: 0 5px 10px rgba(0,0,0,.55), 0 0 10px rgba(110,180,255,.4); }
+.hero-card.rarity-epic      { border-color: #d27dff; box-shadow: 0 5px 10px rgba(0,0,0,.55), 0 0 12px rgba(190,110,255,.55); }
+.hero-card.rarity-legendary { border-color: #ffc14a; box-shadow: 0 5px 10px rgba(0,0,0,.55), 0 0 14px rgba(255,193,74,.55); }
+
+.hero-card .hc-cost {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 32px;
+  height: 32px;
+  background: radial-gradient(circle at 32% 28%, #d9eeff 0%, #4d9aff 55%, #0e3ea8 100%);
+  border: 2.5px solid #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 16px;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.95);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.6);
+}
+.hero-card .hc-rarity {
+  position: absolute;
+  top: -8px;
+  right: 6px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #efd296, #b8853a);
+  color: #2b1d12;
+  border: 1.5px solid #2b1d12;
+  text-transform: uppercase;
+}
+.hero-card.rarity-rare .hc-rarity      { background: linear-gradient(180deg, #cfe6ff, #4480c8); color: #fff; }
+.hero-card.rarity-epic .hc-rarity      { background: linear-gradient(180deg, #e8b6ff, #8a3dd6); color: #fff; }
+.hero-card.rarity-legendary .hc-rarity { background: linear-gradient(180deg, #ffe4a0, #c97c10); color: #2b1408; }
+
+.hero-card .hc-art {
+  width: 100%;
+  aspect-ratio: 1;
+  background:
+    radial-gradient(ellipse at 50% 78%, rgba(255,255,255,0.10), rgba(0,0,0,0) 70%),
+    linear-gradient(180deg, #d4be8a, #7a5b2f);
+  border: 1px solid #2b1d12;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.4);
+}
+.hero-card .hc-art img { width: 92%; height: 92%; object-fit: contain; }
+
+.hero-card .hc-name {
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.8px;
+  color: #ffe9a7;
+  text-align: center;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.95);
+}
+.hero-card .hc-role {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #cfc4ad;
+  text-transform: uppercase;
+}
+.hero-card .hc-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 11px;
+  color: #ffe9a7;
+  margin-top: 2px;
+}
+.hero-card .hc-stat-hp   { color: #b8f3a0; }
+.hero-card .hc-stat-dmg  { color: #ffba6b; }
+.hero-card .hc-stat-rng  { color: #c8e0ff; }
+.hero-card .hc-stat-spd  { color: #ffd7f5; }
+.hero-card .hc-special {
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(255, 200, 80, 0.12);
+  border: 1px solid rgba(255, 200, 80, 0.35);
+  border-radius: 6px;
+  font-size: 10px;
+  font-style: italic;
+  color: #ffe2a0;
+  text-align: center;
+  line-height: 1.25;
+  width: 100%;
+}
+
+/* ============================================================================
+   RESPONSIVE — narrow viewports & portrait orientation
+   ============================================================================
+   When the canvas becomes very narrow (≈ phone width or portrait), the bottom
+   HUD shifts to a vertical stack (mana on top, hand on bottom) and elements
+   shrink further so a 5-card hand fits.
+   ============================================================================ */
+
+@media (max-aspect-ratio: 5/4),
+       (max-width: 700px) {
+  /* Stack mana above the hand */
+  #bottom-hud {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0 6px;
+    bottom: 1%;
+  }
+  #mana-block {
+    width: clamp(160px, 60vw, 320px);
+    padding: 5px 8px 7px;
+  }
+  #mana-crystals { height: 16px; }
+  .mana-label   { font-size: 9px; margin-bottom: 4px; }
+
+  /* Hand becomes tighter on narrow */
+  #hand {
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  .card {
+    width: clamp(56px, 16vw, 110px);
+    padding: 4px 3px 4px;
+  }
+  .card .desc { display: none; }      /* hide description to save vertical room */
+  .card .stats { padding-top: 2px; }
+  .card .name { letter-spacing: 0.5px; }
+
+  /* Top HUD compresses too */
+  #top-hud {
+    padding-top: 14px;
+    gap: 6px;
+  }
+  .hp-bar { width: clamp(120px, 36vw, 220px); }
+  .hp-bar .bar-label { font-size: 9px; top: -16px; }
+  #vs-badge { width: clamp(40px, 8vw, 70px); }
+  #match-timer { font-size: 16px; padding: 1px 8px; }
+  .hud-btn { font-size: 11px; padding: 3px 7px; min-width: 30px; }
+
+  /* Menu buttons compact */
+  .big-menu-btn { font-size: 13px; width: clamp(170px, 60vw, 240px); }
+  .menu-icon-row { gap: 4px; }
+  .bottom-icon { width: clamp(50px, 14vw, 70px); }
+  .bottom-icon .bot-icon-label { font-size: 7px; }
+
+  /* Map view tighter */
+  .map-canvas { width: clamp(280px, 95vw, 1200px); }
+}
+
+/* Very wide viewports — keep the HUD comfortably contained */
+@media (min-width: 1900px) {
+  #bottom-hud { gap: 22px; padding: 0 32px; }
+  #hand { gap: 12px; }
+}

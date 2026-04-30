@@ -312,28 +312,135 @@ const Art = (() => {
   function drawSpellIcon(spell, w, h) {
     const c = makeCanvas(w, h);
     const ctx = c.getContext("2d");
+    const cx = w / 2, cy = h / 2;
+
     if (spell.id === "fireball") {
-      const cx = w / 2, cy = h / 2;
-      const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 30);
-      grad.addColorStop(0, "#ffe0a0");
-      grad.addColorStop(0.4, "#ff8a2a");
-      grad.addColorStop(1, "#7e1f00");
+      // Outer dark ring (chars / scorched edge)
+      ctx.fillStyle = "#3a0a00";
+      ctx.beginPath(); ctx.arc(cx, cy + 2, 30, 0, Math.PI * 2); ctx.fill();
+
+      // Main fireball — multi-stop radial for volume
+      const grad = ctx.createRadialGradient(cx - 4, cy - 6, 2, cx, cy, 28);
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(0.18, "#fff2a0");
+      grad.addColorStop(0.45, "#ff8a18");
+      grad.addColorStop(0.78, "#c93010");
+      grad.addColorStop(1, "#3a0500");
       ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.arc(cx, cy, 26, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "#ffe0a0"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(cx - 14, cy); ctx.quadraticCurveTo(cx - 8, cy - 18, cx + 4, cy - 22); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, 28, 0, Math.PI * 2); ctx.fill();
+
+      // Flame curls rising from the top
+      ctx.strokeStyle = "#fff2a0";
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(cx - 14, cy + 2);
+      ctx.bezierCurveTo(cx - 16, cy - 14, cx - 6, cy - 18, cx - 4, cy - 26);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + 6, cy - 4);
+      ctx.bezierCurveTo(cx + 10, cy - 18, cx + 4, cy - 22, cx + 12, cy - 30);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - 4, cy - 6);
+      ctx.quadraticCurveTo(cx + 2, cy - 14, cx, cy - 24);
+      ctx.stroke();
+
+      // Bright hot core
+      const core = ctx.createRadialGradient(cx - 4, cy - 4, 0, cx - 4, cy - 4, 8);
+      core.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+      core.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = core;
+      ctx.beginPath(); ctx.arc(cx - 4, cy - 4, 8, 0, Math.PI * 2); ctx.fill();
+
+      // Embers around the fireball
+      const embers = [
+        [cx - 22,  cy + 4,  2.2],
+        [cx + 24,  cy - 8,  1.8],
+        [cx + 18,  cy + 14, 2.0],
+        [cx - 18,  cy - 18, 1.6],
+        [cx + 4,   cy + 22, 2.2],
+        [cx - 8,   cy - 26, 1.4],
+      ];
+      embers.forEach(([ex, ey, r]) => {
+        ctx.fillStyle = "#ffb04a";
+        ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255, 240, 180, 0.65)";
+        ctx.beginPath(); ctx.arc(ex - 0.5, ey - 0.5, r * 0.5, 0, Math.PI * 2); ctx.fill();
+      });
     } else if (spell.id === "heal") {
-      const cx = w / 2, cy = h / 2;
-      const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 30);
-      grad.addColorStop(0, "#e8ffd1");
-      grad.addColorStop(1, "#3a8b35");
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.arc(cx, cy, 26, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(cx - 3, cy - 14, 6, 28);
-      ctx.fillRect(cx - 14, cy - 3, 28, 6);
+      // Outer soft halo (transparent green)
+      const halo = ctx.createRadialGradient(cx, cy, 6, cx, cy, 36);
+      halo.addColorStop(0, "rgba(180, 255, 190, 0.55)");
+      halo.addColorStop(1, "rgba(120, 220, 140, 0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(cx, cy, 36, 0, Math.PI * 2); ctx.fill();
+
+      // Mid green orb
+      const orb = ctx.createRadialGradient(cx - 3, cy - 5, 2, cx, cy, 24);
+      orb.addColorStop(0, "#fbffe6");
+      orb.addColorStop(0.35, "#b6f49a");
+      orb.addColorStop(0.75, "#3ea442");
+      orb.addColorStop(1, "#13682b");
+      ctx.fillStyle = orb;
+      ctx.beginPath(); ctx.arc(cx, cy, 24, 0, Math.PI * 2); ctx.fill();
+
+      // White cross with bevel — drawn as a plus shape with rounded ends
+      ctx.fillStyle = "#ffffff";
+      const armW = 7, armL = 22;
+      // vertical
+      roundRect(ctx, cx - armW / 2, cy - armL / 2, armW, armL, 2.5);
+      ctx.fill();
+      // horizontal
+      roundRect(ctx, cx - armL / 2, cy - armW / 2, armL, armW, 2.5);
+      ctx.fill();
+
+      // soft inner shadow on the cross for depth
+      ctx.fillStyle = "rgba(60, 140, 80, 0.3)";
+      roundRect(ctx, cx - armW / 2 + 1, cy + 1, armW, armL / 2 - 1, 2);
+      ctx.fill();
+
+      // bright sparkles
+      const sparkles = [
+        [cx - 22, cy - 14, 2.5],
+        [cx + 22, cy - 18, 1.8],
+        [cx + 24, cy + 10, 2.0],
+        [cx - 18, cy + 18, 2.4],
+        [cx + 0,  cy - 28, 1.6],
+      ];
+      sparkles.forEach(([sx, sy, r]) => {
+        ctx.fillStyle = "#ffffff";
+        // 4-point sparkle (diamond)
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - r);
+        ctx.lineTo(sx + r * 0.45, sy);
+        ctx.lineTo(sx, sy + r);
+        ctx.lineTo(sx - r * 0.45, sy);
+        ctx.closePath(); ctx.fill();
+      });
+
+      // Highlight on the orb
+      const hi = ctx.createRadialGradient(cx - 6, cy - 8, 0, cx - 6, cy - 8, 10);
+      hi.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+      hi.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = hi;
+      ctx.beginPath(); ctx.arc(cx - 6, cy - 8, 10, 0, Math.PI * 2); ctx.fill();
     }
     return c;
+  }
+
+  // Small helper for rounded rectangles (used by spell icons)
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
   }
 
   // ---------- SPRITE ANIMATION SYSTEM ----------
@@ -431,35 +538,80 @@ const Art = (() => {
   // relative to the document by prefixing with "game/".
   const ASSET_BASE = "game/";
 
-  async function boot() {
-    cache.background = await loadImage("assets/background.png");
-    cache.player.full       = await loadImage("assets/player_castle_full.png");
-    cache.player.damaged    = await loadImage("assets/player_castle_damaged.png");
-    cache.player.destroyed  = await loadImage("assets/player_castle_destroyed.png");
-    cache.enemy.full        = await loadImage("assets/enemy_castle_full.png");
-    cache.enemy.damaged     = await loadImage("assets/enemy_castle_damaged.png");
-    cache.enemy.destroyed   = await loadImage("assets/enemy_castle_destroyed.png");
+  // Boot is split in two phases for fast startup on mobile:
+  //   bootEssential() — backgrounds, castles, card icons (small, must finish
+  //                     before the menu shows). Everything is loaded in
+  //                     PARALLEL via Promise.all.
+  //   bootSprites()   — heavy unit animation frames (~880 PNGs total).
+  //                     Loaded in the background while the menu is already
+  //                     interactive. Each unit loads independently so a card
+  //                     becomes "ready" the moment its own sprites complete.
+  let _spritesPromise = null;
+  function spritesReady() { return _spritesPromise || Promise.resolve(); }
 
-    // Load sprite-animated units
-    for (const id in UNITS) {
-      if (UNITS[id].sprite) {
-        cache.sprites[id] = await loadUnitSprite(UNITS[id]);
-      }
-    }
+  async function bootEssential() {
+    // Backgrounds + castles (default + campaign) — loaded in parallel.
+    const [bg, pf, pd, pde, ef, ed, ede,
+           cbg, cpf, cpd, cpde, cef, ced, cede] = await Promise.all([
+      loadImage("assets/background.png"),
+      loadImage("assets/player_castle_full.png"),
+      loadImage("assets/player_castle_damaged.png"),
+      loadImage("assets/player_castle_destroyed.png"),
+      loadImage("assets/enemy_castle_full.png"),
+      loadImage("assets/enemy_castle_damaged.png"),
+      loadImage("assets/enemy_castle_destroyed.png"),
+      loadImage("assets/campaign/background.png"),
+      loadImage("assets/campaign/player_castle_full.png"),
+      loadImage("assets/campaign/player_castle_damaged.png"),
+      loadImage("assets/campaign/player_castle_destroyed.png"),
+      loadImage("assets/campaign/enemy_castle_full.png"),
+      loadImage("assets/campaign/enemy_castle_damaged.png"),
+      loadImage("assets/campaign/enemy_castle_destroyed.png"),
+    ]);
+    cache.background       = bg;
+    cache.player.full      = pf;
+    cache.player.damaged   = pd;
+    cache.player.destroyed = pde;
+    cache.enemy.full       = ef;
+    cache.enemy.damaged    = ed;
+    cache.enemy.destroyed  = ede;
+    cache.campaign = {
+      background: cbg,
+      player: { full: cpf, damaged: cpd, destroyed: cpde },
+      enemy:  { full: cef, damaged: ced, destroyed: cede },
+    };
 
-    // Card icons:
-    //   1) explicit icon PNG (preferred)
-    //   2) fallback: sprite idle frame
-    //   3) fallback: procedural silhouette
+    // Card icons (small) — also parallel
+    const iconJobs = [];
     for (const id in UNITS) {
       const u = UNITS[id];
-      let icon = null;
-      if (u.icon) icon = await loadIconAsCanvas(u.icon, 96, 80);
-      if (!icon && u.sprite && cache.sprites[id]) icon = makeSpriteCardIcon(cache.sprites[id]);
-      if (!icon) icon = drawUnitIcon(u, 96, 80);
-      cache.cardIcons[id] = icon;
+      iconJobs.push(
+        u.icon
+          ? loadIconAsCanvas(u.icon, 96, 80).then((c) => { cache.cardIcons[id] = c || drawUnitIcon(u, 96, 80); })
+          : Promise.resolve(cache.cardIcons[id] = drawUnitIcon(u, 96, 80))
+      );
     }
+    await Promise.all(iconJobs);
     for (const id in SPELLS) cache.cardIcons[id] = drawSpellIcon(SPELLS[id], 96, 80);
+  }
+
+  function bootSprites() {
+    // Each unit loads independently so a sprite becomes ready ASAP. We don't
+    // await the global Promise — drawing falls back to procedural silhouettes
+    // until each unit's sprite cache lands.
+    const jobs = [];
+    for (const id in UNITS) {
+      const u = UNITS[id];
+      if (!u.sprite) continue;
+      jobs.push(loadUnitSprite(u).then((set) => { cache.sprites[id] = set; }));
+    }
+    _spritesPromise = Promise.all(jobs);
+    return _spritesPromise;
+  }
+
+  async function boot() {
+    await bootEssential();
+    bootSprites();           // fire-and-forget — runs in background
   }
 
   async function loadIconAsCanvas(src, w, h) {
@@ -516,6 +668,9 @@ const Art = (() => {
 
   return {
     boot,
+    bootEssential,
+    bootSprites,
+    spritesReady,
     cache,
     drawUnitInto,
     drawSpriteFrame,
