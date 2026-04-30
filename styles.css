@@ -1457,11 +1457,12 @@ html, body {
 .menu-home .home-buttons {
   position: absolute;
   left: 50%;
-  bottom: 11%;                    /* sweet spot — clears the logo, not too low */
+  top: 68%;                       /* low — well below the logo, on the path */
+  bottom: auto;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  gap: clamp(4px, 0.6vmin, 7px);  /* tight stack like the reference */
+  gap: clamp(8px, 1.4vmin, 14px); /* generous spacing between the 4 buttons */
   align-items: center;
 }
 
@@ -1515,12 +1516,17 @@ html, body {
 .big-menu-btn.disabled-btn { opacity: 0.92; }
 .big-menu-btn.disabled-btn:hover { filter: brightness(1.05); }
 
-/* Bottom icon row */
+/* Bottom icon row — bottom-RIGHT CORNER OF THE MENU IMAGE.
+   The menu image uses background-size: contain on a 16:9 canvas, so on a
+   16:9 viewport the image's right edge sits at ~92 % of the canvas width
+   (8 % blur band on each side). We anchor the icons just INSIDE that edge
+   so they always land on the artwork, not on the blurred letterbox. */
 .menu-icon-row {
   position: absolute;
-  bottom: clamp(10px, 1.5vmin, 22px);
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: clamp(8px, 2%, 24px);
+  right: clamp(180px, 25%, 320px);
+  left: auto;
+  transform: none;
   display: flex;
   gap: clamp(4px, 0.7vmin, 8px);
   z-index: 5;
